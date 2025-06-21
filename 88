@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>恐龙跑酷</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+    <style>
+        body { text-align: center; margin-top: 20px; }
+        canvas { background: #f0f0f0; border: 2px solid #333; }
+        #loading { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>简易恐龙游戏</h2>
+    <div id="loading">正在加载游戏环境...</div>
+    <canvas id="game" width="600" height="200"></canvas>
+    <p>按空格键跳跃</p >
+
+    <script>
+        async function startGame() {
+            // 显示加载进度
+            const updateStatus = (msg) => {
+                document.getElementById("loading").innerText = msg;
+            };
+            
+            try {
+                updateStatus("初始化Pyodide...");
+                const pyodide = await loadPyodide();
+                
+                updateStatus("加载Pygame...");
+                await pyodide.loadPackage("pygame");
+                
+                updateStatus("启动游戏中...");
+                await pyodide.runPython(`
+                    import pygame
+                    import random
+                    
+                    # 初始化游戏
+                    pygame.init()
+                    screen = pygame.display.set_mode((600, 200))
+                    clock = pygame.time.Clock()
+                    
+                    # 游戏元素
+                    dino = pygame.Rect(50, 150, 40, 40)
+                    obstacles = []
+                    score = 0
+                    game_over = False
+                    
+                    # 游戏主循环
+                    running = True
+                    while running:
+                        # 事件处理
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                running = False
+                        
+                        # 键盘控制
+                        keys = pygame.key.get_pressed()
+                        if keys[pygame.K_SPACE] and dino.y == 150:
+                            dino.y -= 80  # 跳跃
+                        
+                        # 游戏逻辑
+                        if not game_over:
+                            # 重力
+                            if dino.y < 150:
+                                dino.y += 5
+                            
+                            # 生成障碍物
+                            if random.random() < 0.02:
+                                height = random.randint(30, 50)
+                                obstacles.append(pygame.Rect(600, 150-height, 20, height))
+                            
+                            # 更新障碍物
+                            for obs in obstacles[:]:
+                                obs.x -= 8
+                                if obs.colliderect(dino):
+                                    game_over = True
+                                if obs.x < -20:
+                                    obstacles.remove(obs)
+                                    score += 1
+                        
+                        # 绘制
+                        screen.fill((135, 206, 235))  # 天空蓝
+                        pygame.draw.rect(screen, (139, 69, 19), (0, 150, 600, 50))  # 地面
+                        pygame.draw.rect(screen, (0, 120, 255), dino)  # 恐龙
+                        for obs in obstacles:
+                            pygame.draw.rect(screen, (0, 0, 0), obs)  # 障碍物
+                        
+                        # 显示分数
+                        font = pygame.font.SysFont(None, 30)
+                        text = font.render(f"分数: {score}", True, (0, 0, 0))
+                        screen.blit(text, (10, 10))
+                        
+                        if game_over:
+                            text = font.render("游戏结束! 刷新页面重玩", True, (255, 0, 0))
+                            screen.blit(text, (200, 80))
+                        
+                        pygame.display.flip()
+                        clock.tick(60)
+                `);
+                
+                document.getElementById("loading").style.display = "none";
+            } catch (error) {
+                updateStatus("加载失败: " + error.message);
+            }
+        }
+        
+        // 启动游戏
+        startGame();
+        
+        // 手机触摸控制
+        document.getElementById("game").addEventListener("click", () => {
+            // 模拟空格键按下
+            const event = new KeyboardEvent("keydown", { key: " " });
+            document.dispatchEvent(event);
+        });
+    </script>
+</body>
+</html>
